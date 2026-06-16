@@ -35,6 +35,17 @@ function FeedbackController:Start()
 	local clickTween = TweenService:Create(clickButton, tweenInfo, { Size = targetSize })
 
 	clickButton.MouseButton1Down:Connect(function()
+		-- Block animations and sounds when menus are open
+		local shopFrame = mainUI:FindFirstChild("ShopFrame")
+		local inventoryFrame = mainUI:FindFirstChild("InventoryFrame")
+
+		local shopVisible = shopFrame and shopFrame.Visible
+		local inventoryVisible = inventoryFrame and inventoryFrame.Visible
+
+		if shopVisible or inventoryVisible then
+			return
+		end
+
 		self.ClickSound:Play()
 		clickTween:Play()
 	end)

@@ -33,11 +33,11 @@ function CrateService:ProcessCrateRoll(player, crateId)
 	local crateData = Constants.CRATES[crateId]
 	local data = profile.Data
 
-	if data.Clicks < crateData.Cost then
-		return false, "Insufficient Clicks"
+	if data.Coins < crateData.Cost then
+		return false, "Insufficient Coins"
 	end
 
-	data.Clicks -= crateData.Cost
+	data.Coins -= crateData.Cost
 
 	local totalWeight = 0
 	for _, item in ipairs(crateData.LootTable) do

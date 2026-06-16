@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ProfileService = require(ReplicatedStorage.Shared.ProfileService)
 
 local ProfileTemplate = {
-	Clicks = 0,
+	Coins = 0,
 	Rebirths = 0,
 	Multipliers = {
 		Base = 1,
@@ -34,6 +34,21 @@ local function PlayerAdded(player)
 
 		if player:IsDescendantOf(Players) == true then
 			Profiles[player] = profile
+			
+			-- Migration: Convert Clicks to Coins if upgrading old profile
+			if profile.Data.Clicks ~= nil then
+				profile.Data.Coins = profile.Data.Clicks
+				profile.Data.Clicks = nil
+			end
+			
+			-- Fire initial data update once client is initialized
+			task.spawn(function()
+				task.wait(1.5)
+				local ClickService = require(script.Parent.ClickService)
+				if ClickService and ClickService.DataUpdateEvent then
+					ClickService.DataUpdateEvent:FireClient(player, profile.Data)
+				end
+			end)
 		else
 			profile:Release()
 		end

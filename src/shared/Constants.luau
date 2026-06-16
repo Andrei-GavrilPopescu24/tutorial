@@ -1,6 +1,6 @@
 local Constants = {
 	MAX_CLICKS_PER_SECOND = 15,
-	BASE_CLICK_YIELD = 1,
+	BASE_CLICK_YIELD = 100,
 	BASE_REBIRTH_COST = 100,
 	REBIRTH_COST_SCALING = 1.5,
 
@@ -76,4 +76,3 @@ local Constants = {
 }
 
 return Constants
-

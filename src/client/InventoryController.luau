@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local Constants = require(Shared.Constants)
+local UIController = require(script.Parent:WaitForChild("UIController"))
 
 local InventoryController = {
 	SelectedItemId = nil,
@@ -34,58 +35,77 @@ function InventoryController:Start()
 			self:RefreshGrid()
 		end
 	end)
+
+	-- Request initial data on startup
+	local requestFunc = ReplicatedStorage:WaitForChild("RequestDataFunction")
+	task.spawn(function()
+		local initialData = requestFunc:InvokeServer()
+		if initialData then
+			self.CurrentData = initialData
+			if self.InventoryFrame.Visible then
+				self:RefreshGrid()
+			end
+		end
+	end)
 end
 
 function InventoryController:BuildUI()
-	-- 1. Create the Inventory Open Button next to other buttons
+	local menuBar = self.MainUI:WaitForChild("MenuBar")
+
+	-- 1. Create the Inventory Open Button inside bottom MenuBar
 	local inventoryButton = Instance.new("TextButton")
 	inventoryButton.Name = "InventoryButton"
-	inventoryButton.Size = UDim2.new(0, 130, 0, 45)
-	-- Float above/left of standard bottom buttons
-	inventoryButton.Position = UDim2.new(0, 20, 0.85, 0)
-	inventoryButton.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-	inventoryButton.Text = "💼 Inventory"
+	inventoryButton.Size = UDim2.new(0, 110, 0, 42)
+	inventoryButton.BackgroundColor3 = Color3.fromRGB(10, 25, 35) -- Dark steel blue
+	inventoryButton.Text = "💼 ARCHIVE.SYS"
 	inventoryButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	inventoryButton.Font = Enum.Font.GothamBold
-	inventoryButton.TextSize = 16
-	inventoryButton.Parent = self.MainUI
+	inventoryButton.TextSize = 11
+	inventoryButton.LayoutOrder = 2
+	inventoryButton.Parent = menuBar
 
 	local btnCorner = Instance.new("UICorner")
-	btnCorner.CornerRadius = UDim.new(0, 8)
+	btnCorner.CornerRadius = UDim.new(0, 6)
 	btnCorner.Parent = inventoryButton
 
 	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = Color3.fromRGB(65, 65, 80)
-	btnStroke.Thickness = 1.5
+	btnStroke.Color = Color3.fromRGB(0, 150, 255) -- neon blue
+	btnStroke.Thickness = 1.2
 	btnStroke.Parent = inventoryButton
 
 	-- Button Hover Animations
 	inventoryButton.MouseEnter:Connect(function()
 		TweenService:Create(inventoryButton, TweenInfo.new(0.15), {
-			BackgroundColor3 = Color3.fromRGB(50, 50, 65),
+			BackgroundColor3 = Color3.fromRGB(15, 40, 55),
 		}):Play()
 		TweenService:Create(btnStroke, TweenInfo.new(0.15), {
-			Color = Color3.fromRGB(100, 100, 130),
+			Thickness = 2,
 		}):Play()
 	end)
 	inventoryButton.MouseLeave:Connect(function()
 		TweenService:Create(inventoryButton, TweenInfo.new(0.15), {
-			BackgroundColor3 = Color3.fromRGB(35, 35, 45),
+			BackgroundColor3 = Color3.fromRGB(10, 25, 35),
 		}):Play()
 		TweenService:Create(btnStroke, TweenInfo.new(0.15), {
-			Color = Color3.fromRGB(65, 65, 80),
+			Thickness = 1.2,
 		}):Play()
+	end)
+
+	-- Open/Close toggle connection
+	inventoryButton.MouseButton1Click:Connect(function()
+		self:ToggleFrame(not self.InventoryFrame.Visible)
 	end)
 
 	-- 2. Create main Inventory Frame
 	local frame = Instance.new("Frame")
 	frame.Name = "InventoryFrame"
-	frame.Size = UDim2.new(0, 530, 0, 350)
+	frame.Size = UDim2.new(0, 520, 0, 350)
 	frame.Position = UDim2.new(0.5, 0, 0.5, 0)
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+	frame.BackgroundColor3 = Color3.fromRGB(12, 13, 20) -- Dark Slate Navy
 	frame.BackgroundTransparency = 0.15
 	frame.Visible = false
+	frame.ZIndex = 5 -- Render on top of HUD click button / stats
 	frame.Parent = self.MainUI
 	self.InventoryFrame = frame
 
@@ -93,32 +113,44 @@ function InventoryController:BuildUI()
 	frameCorner.CornerRadius = UDim.new(0, 12)
 	frameCorner.Parent = frame
 
-	local frameStroke = Instance.new("UIStroke")
-	frameStroke.Color = Color3.fromRGB(55, 55, 70)
-	frameStroke.Thickness = 2
-	frameStroke.Parent = frame
+	-- Apply glowing border and corners using UIController
+	UIController:ApplyGlowingBorder(frame, Color3.fromRGB(0, 240, 255), Color3.fromRGB(180, 0, 255), 1.8)
+	UIController:AddTechCorners(frame, Color3.fromRGB(0, 240, 255))
 
-	-- 3. Title Label
+	-- 3. Title Label & Subtitle
 	local titleLabel = Instance.new("TextLabel")
 	titleLabel.Name = "TitleLabel"
-	titleLabel.Size = UDim2.new(1, -60, 0, 40)
-	titleLabel.Position = UDim2.new(0, 20, 0, 10)
+	titleLabel.Size = UDim2.new(1, -60, 0, 25)
+	titleLabel.Position = UDim2.new(0, 20, 0, 12)
 	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = "ANIME CHARACTERS"
+	titleLabel.Text = "// DATA ARCHIVE"
 	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	titleLabel.Font = Enum.Font.GothamBold
-	titleLabel.TextSize = 18
+	titleLabel.Font = Enum.Font.GothamBlack
+	titleLabel.TextSize = 16
 	titleLabel.Parent = frame
+
+	local subtitleLabel = Instance.new("TextLabel")
+	subtitleLabel.Name = "SubtitleLabel"
+	subtitleLabel.Size = UDim2.new(1, -60, 0, 15)
+	subtitleLabel.Position = UDim2.new(0, 20, 0, 32)
+	subtitleLabel.BackgroundTransparency = 1
+	subtitleLabel.Text = "ACTIVE DIAGNOSTICS // EQUIPPED MODULES INVENTORY"
+	subtitleLabel.TextColor3 = Color3.fromRGB(0, 240, 255)
+	subtitleLabel.TextTransparency = 0.5
+	subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	subtitleLabel.Font = Enum.Font.RobotoMono
+	subtitleLabel.TextSize = 8
+	subtitleLabel.Parent = frame
 
 	-- 4. Close Button
 	local closeButton = Instance.new("TextButton")
 	closeButton.Name = "CloseButton"
 	closeButton.Size = UDim2.new(0, 30, 0, 30)
 	closeButton.Position = UDim2.new(1, -40, 0, 10)
-	closeButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+	closeButton.BackgroundColor3 = Color3.fromRGB(35, 15, 20)
 	closeButton.Text = "✕"
-	closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
 	closeButton.Font = Enum.Font.GothamBold
 	closeButton.TextSize = 14
 	closeButton.Parent = frame
@@ -127,13 +159,22 @@ function InventoryController:BuildUI()
 	closeCorner.CornerRadius = UDim.new(0, 6)
 	closeCorner.Parent = closeButton
 
-	closeButton.MouseButton1Click:Connect(function()
-		self:ToggleFrame(false)
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.Color = Color3.fromRGB(180, 50, 50)
+	closeStroke.Thickness = 1.2
+	closeStroke.Parent = closeButton
+	
+	closeButton.MouseEnter:Connect(function()
+		TweenService:Create(closeButton, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(80, 20, 25), TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+		TweenService:Create(closeStroke, TweenInfo.new(0.12), { Thickness = 2 }):Play()
+	end)
+	closeButton.MouseLeave:Connect(function()
+		TweenService:Create(closeButton, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(35, 15, 20), TextColor3 = Color3.fromRGB(255, 100, 100) }):Play()
+		TweenService:Create(closeStroke, TweenInfo.new(0.12), { Thickness = 1.2 }):Play()
 	end)
 
-	-- Open/Close toggle connection
-	inventoryButton.MouseButton1Click:Connect(function()
-		self:ToggleFrame(not frame.Visible)
+	closeButton.MouseButton1Click:Connect(function()
+		self:ToggleFrame(false)
 	end)
 
 	-- 5. Left Side: Grid Scrolling Frame
@@ -158,7 +199,7 @@ function InventoryController:BuildUI()
 	details.Name = "DetailPanel"
 	details.Size = UDim2.new(0.4, -20, 0.8, -10)
 	details.Position = UDim2.new(0.6, 5, 0.18, 0)
-	details.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+	details.BackgroundColor3 = Color3.fromRGB(16, 17, 24)
 	details.Parent = frame
 
 	local detailsCorner = Instance.new("UICorner")
@@ -166,8 +207,8 @@ function InventoryController:BuildUI()
 	detailsCorner.Parent = details
 
 	local detailsStroke = Instance.new("UIStroke")
-	detailsStroke.Color = Color3.fromRGB(45, 45, 55)
-	detailsStroke.Thickness = 1
+	detailsStroke.Color = Color3.fromRGB(0, 240, 255) -- Cyan outline
+	detailsStroke.Thickness = 1.2
 	detailsStroke.Parent = details
 
 	-- Detail Components
@@ -231,7 +272,7 @@ function InventoryController:BuildUI()
 	actionButton.Name = "ActionButton"
 	actionButton.Size = UDim2.new(1, -30, 0, 35)
 	actionButton.Position = UDim2.new(0, 15, 1, -45)
-	actionButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+	actionButton.BackgroundColor3 = Color3.fromRGB(10, 25, 40)
 	actionButton.Text = "Equip"
 	actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	actionButton.Font = Enum.Font.GothamBold
@@ -244,6 +285,11 @@ function InventoryController:BuildUI()
 	actionCorner.CornerRadius = UDim.new(0, 6)
 	actionCorner.Parent = actionButton
 
+	local actionStroke = Instance.new("UIStroke")
+	actionStroke.Color = Color3.fromRGB(0, 150, 255)
+	actionStroke.Thickness = 1.2
+	actionStroke.Parent = actionButton
+
 	self.DetailPanel = {
 		Frame = details,
 		PreviewImage = previewImage,
@@ -252,6 +298,7 @@ function InventoryController:BuildUI()
 		StatsLabel = statsLabel,
 		PerkLabel = perkLabel,
 		ActionButton = actionButton,
+		ActionStroke = actionStroke,
 	}
 
 	-- Action Button Event
@@ -284,10 +331,16 @@ end
 function InventoryController:ToggleFrame(visible)
 	self.InventoryFrame.Visible = visible
 	if visible then
+		-- Close Shop frame if open to prevent menu overlap
+		local shopFrame = self.MainUI:FindFirstChild("ShopFrame")
+		if shopFrame then
+			shopFrame.Visible = false
+		end
+
 		-- Apply pop scale open animation
 		self.InventoryFrame.Size = UDim2.new(0, 400, 0, 260)
 		TweenService:Create(self.InventoryFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = UDim2.new(0, 530, 0, 350)
+			Size = UDim2.new(0, 520, 0, 350)
 		}):Play()
 
 		self:RefreshGrid()
@@ -346,13 +399,27 @@ function InventoryController:RefreshGrid()
 
 		local slot = Instance.new("Frame")
 		slot.Name = "ItemSlot_" .. details.Name
-		slot.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+		slot.BackgroundColor3 = Color3.fromRGB(16, 17, 24)
+		slot.BackgroundTransparency = 0.2
 		slot.BorderSizePixel = 0
 		slot.Parent = self.GridScroll
 
 		local slotCorner = Instance.new("UICorner")
 		slotCorner.CornerRadius = UDim.new(0, 6)
 		slotCorner.Parent = slot
+
+		-- Top Rarity Stripe Accent
+		local accentBar = Instance.new("Frame")
+		accentBar.Name = "AccentBar"
+		accentBar.Size = UDim2.new(1, 0, 0, 3)
+		accentBar.Position = UDim2.new(0, 0, 0, 0)
+		accentBar.BackgroundColor3 = rarityColor
+		accentBar.BorderSizePixel = 0
+		accentBar.Parent = slot
+
+		local accentCorner = Instance.new("UICorner")
+		accentCorner.CornerRadius = UDim.new(0, 3)
+		accentCorner.Parent = accentBar
 
 		-- Inner frame for scaling animation inside UIGridLayout
 		local inner = Instance.new("ImageButton")
@@ -369,8 +436,8 @@ function InventoryController:RefreshGrid()
 		innerCorner.Parent = inner
 
 		local slotStroke = Instance.new("UIStroke")
-		slotStroke.Color = rarityColor
-		slotStroke.Thickness = (equippedId == itemId) and 2.5 or 1.2
+		slotStroke.Color = (equippedId == itemId) and rarityColor or Color3.fromRGB(35, 38, 48)
+		slotStroke.Thickness = (equippedId == itemId) and 2 or 1.2
 		slotStroke.Parent = slot
 
 		-- Equipped badge / indicator
@@ -379,7 +446,7 @@ function InventoryController:RefreshGrid()
 			badge.Name = "EquippedBadge"
 			badge.Size = UDim2.new(0, 16, 0, 16)
 			badge.Position = UDim2.new(0, 4, 0, 4)
-			badge.BackgroundColor3 = Color3.fromRGB(0, 180, 50)
+			badge.BackgroundColor3 = Color3.fromRGB(0, 220, 80)
 			badge.Parent = inner
 
 			local badgeCorner = Instance.new("UICorner")
@@ -418,10 +485,11 @@ function InventoryController:RefreshGrid()
 		-- Micro-animations for Hover
 		inner.MouseEnter:Connect(function()
 			TweenService:Create(inner, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				Size = UDim2.new(1.1, 0, 1.1, 0),
+				Size = UDim2.new(1.04, 0, 1.04, 0),
 			}):Play()
 			TweenService:Create(slotStroke, TweenInfo.new(0.12), {
-				Thickness = (equippedId == itemId) and 3.5 or 2.2,
+				Color = rarityColor,
+				Thickness = 2,
 			}):Play()
 		end)
 		inner.MouseLeave:Connect(function()
@@ -429,7 +497,8 @@ function InventoryController:RefreshGrid()
 				Size = UDim2.new(1, 0, 1, 0),
 			}):Play()
 			TweenService:Create(slotStroke, TweenInfo.new(0.12), {
-				Thickness = (equippedId == itemId) and 2.5 or 1.2,
+				Color = (equippedId == itemId) and rarityColor or Color3.fromRGB(35, 38, 48),
+				Thickness = (equippedId == itemId) and 2 or 1.2,
 			}):Play()
 		end)
 
@@ -462,21 +531,30 @@ function InventoryController:SelectGridItem(itemId)
 	panel.ActionButton.Visible = true
 
 	local equippedId = self.CurrentData and self.CurrentData.EquippedImage or "rbxassetid://0000000"
+	local actionStroke = panel.ActionStroke
 
 	if equippedId == itemId then
 		if itemId == "rbxassetid://0000000" then
-			-- Default item can't be unequipped since it's the baseline
-			panel.ActionButton.Text = "Equipped"
-			panel.ActionButton.BackgroundColor3 = Color3.fromRGB(45, 120, 60)
+			panel.ActionButton.Text = "EQUIPPED"
+			panel.ActionButton.BackgroundColor3 = Color3.fromRGB(10, 35, 20)
+			if actionStroke then
+				actionStroke.Color = Color3.fromRGB(0, 220, 80)
+			end
 			panel.ActionButton.AutoButtonColor = false
 		else
-			panel.ActionButton.Text = "Unequip"
-			panel.ActionButton.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+			panel.ActionButton.Text = "UNEQUIP"
+			panel.ActionButton.BackgroundColor3 = Color3.fromRGB(35, 10, 15)
+			if actionStroke then
+				actionStroke.Color = Color3.fromRGB(200, 50, 50)
+			end
 			panel.ActionButton.AutoButtonColor = true
 		end
 	else
-		panel.ActionButton.Text = "Equip"
-		panel.ActionButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+		panel.ActionButton.Text = "EQUIP"
+		panel.ActionButton.BackgroundColor3 = Color3.fromRGB(10, 25, 40)
+		if actionStroke then
+			actionStroke.Color = Color3.fromRGB(0, 150, 255)
+		end
 		panel.ActionButton.AutoButtonColor = true
 	end
 end

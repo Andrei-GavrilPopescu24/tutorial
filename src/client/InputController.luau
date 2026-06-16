@@ -4,43 +4,51 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local InputController = {}
 
 function InputController:Init()
-	self.ClickEvent = ReplicatedStorage:WaitForChild("ClickEvent")
-	self.RebirthFunction = ReplicatedStorage:WaitForChild("RebirthFunction")
-	self.OpenCrateFunction = ReplicatedStorage:WaitForChild("OpenCrateFunction")
-	self.PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	-- Emptied to prevent bootstrapper deadlocks
 end
 
 function InputController:Start()
-	local mainUI = self.PlayerGui:WaitForChild("MainUI")
-	local clickButton = mainUI:WaitForChild("ClickButton")
-	local rebirthButton = mainUI:WaitForChild("RebirthButton")
-	local crateButton = mainUI:WaitForChild("CrateButton")
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local mainUI = playerGui:WaitForChild("MainUI", 5)
 
-	clickButton.MouseButton1Click:Connect(function()
-		self.ClickEvent:FireServer()
+	if not mainUI then
+		warn("[InputController] MainUI missing. UIController failed.")
+		return
+	end
+
+	local clickButton = mainUI:WaitForChild("ClickButton")
+	local menuBar = mainUI:WaitForChild("MenuBar")
+	local rebirthButton = menuBar:WaitForChild("RebirthButton")
+
+	local clickEvent = ReplicatedStorage:WaitForChild("ClickEvent", 10)
+	local rebirthFunction = ReplicatedStorage:WaitForChild("RebirthFunction", 10)
+
+	if not clickEvent or not rebirthFunction then
+		warn("[InputController] Network instances missing. Server failed to boot.")
+		return
+	end
+
+	clickButton.MouseButton1Down:Connect(function()
+		-- Block clicking when either menu is open
+		local shopFrame = mainUI:FindFirstChild("ShopFrame")
+		local inventoryFrame = mainUI:FindFirstChild("InventoryFrame")
+
+		local shopVisible = shopFrame and shopFrame.Visible
+		local inventoryVisible = inventoryFrame and inventoryFrame.Visible
+
+		if shopVisible or inventoryVisible then
+			return
+		end
+
+		clickEvent:FireServer()
 	end)
 
 	rebirthButton.MouseButton1Click:Connect(function()
-		local success = self.RebirthFunction:InvokeServer()
+		local success = rebirthFunction:InvokeServer()
 		if success then
 			print("Rebirth successful.")
 		else
 			print("Insufficient clicks for rebirth.")
-		end
-	end)
-
-	crateButton.MouseButton1Click:Connect(function()
-		if not _G.ActiveShopCrates then
-			return
-		end
-
-		local targetCrate = _G.ActiveShopCrates[1]
-		local success, result = self.OpenCrateFunction:InvokeServer(targetCrate)
-
-		if success then
-			print("Unboxed:", result.Rarity)
-		else
-			print("Transaction Failed:", result)
 		end
 	end)
 end

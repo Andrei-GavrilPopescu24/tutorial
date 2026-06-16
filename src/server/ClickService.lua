@@ -18,23 +18,46 @@ function ClickService:Init()
 	self.PerkTriggerEvent = Instance.new("RemoteEvent")
 	self.PerkTriggerEvent.Name = "PerkTriggerEvent"
 	self.PerkTriggerEvent.Parent = ReplicatedStorage
+
+	self.RequestDataFunction = Instance.new("RemoteFunction")
+	self.RequestDataFunction.Name = "RequestDataFunction"
+	self.RequestDataFunction.Parent = ReplicatedStorage
 end
 
 function ClickService:Start()
 	self.ClickEvent.OnServerEvent:Connect(function(player)
 		self:ProcessClick(player)
 	end)
+
+	self.RequestDataFunction.OnServerInvoke = function(player)
+		local profile = DataController.Profiles[player]
+		if profile then
+			return profile.Data
+		end
+		-- Retry loop in case profile is still loading asynchronously
+		for _ = 1, 10 do
+			task.wait(0.2)
+			profile = DataController.Profiles[player]
+			if profile then
+				return profile.Data
+			end
+		end
+		return nil
+	end
 end
 
 function ClickService:ProcessClick(player)
+	print("[ClickService] ProcessClick called by " .. tostring(player.Name))
 	local profile = DataController.Profiles[player]
 	if not profile then
+		warn("[ClickService] Profile not found for player: " .. tostring(player.Name))
 		return
 	end
 
 	local data = profile.Data
 	local equippedId = data.EquippedImage or "rbxassetid://0000000"
 	local itemInfo = Constants.ITEMS[equippedId] or Constants.ITEMS["rbxassetid://0000000"]
+	print("[ClickService] Player " .. player.Name .. " equipped item: " .. tostring(equippedId) .. " (Mult: " .. tostring(itemInfo.Multiplier) .. ")")
 
 	local baseYield = Constants.BASE_CLICK_YIELD
 	local rebirthMult = data.Multipliers.Base or 1
@@ -74,7 +97,8 @@ function ClickService:ProcessClick(player)
 		self.PerkTriggerEvent:FireClient(player, itemInfo.PerkName, perkMultiplier)
 	end
 
-	data.Clicks += yield
+	data.Coins += yield
+	print("[ClickService] Coins updated for " .. player.Name .. " -> Coins: " .. tostring(data.Coins) .. " (Yield: " .. tostring(yield) .. ")")
 	self.DataUpdateEvent:FireClient(player, data)
 end
 

@@ -1,4 +1,3 @@
-print("Trace: ClickService Init")
 local ServerModules = script
 
 local Services = {}

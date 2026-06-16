@@ -1,4 +1,4 @@
-local ClientModules = script.Parent
+local ClientModules = script
 local Controllers = {}
 
 for _, module in ipairs(ClientModules:GetChildren()) do

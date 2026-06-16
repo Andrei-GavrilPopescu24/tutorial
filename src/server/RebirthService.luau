@@ -28,8 +28,8 @@ function RebirthService:ProcessRebirth(player)
 	local data = profile.Data
 	local cost = math.floor(Constants.BASE_REBIRTH_COST * (Constants.REBIRTH_COST_SCALING ^ data.Rebirths))
 
-	if data.Clicks >= cost then
-		data.Clicks -= cost
+	if data.Coins >= cost then
+		data.Coins = 0 -- Reset coins/money to 0 upon rebirth
 		data.Rebirths += 1
 		data.Multipliers.Base = data.Rebirths + 1
 
